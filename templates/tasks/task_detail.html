@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-3">
+    <h2>{{ task.title }}</h2>
+    <p>{{ task.description }}</p>
+    <p>Статус: <span class="badge badge-primary">{{ task.status }}</span></p>
+    <p>Пріорітет: <span class="badge badge-secondary">{{ task.priority }}</span></p>
+    <a href="{% url 'tasks:task-update' task.id %}" class="btn btn-outline-warning">Редагувати</a>
+    <a href="{% url 'tasks:task-delete' task.id %}" class="btn btn-outline-danger">Видалити</a>
+</div>
+{% endblock %}
