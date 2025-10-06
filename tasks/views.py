@@ -4,21 +4,21 @@ from tasks import models
 from django.views.generic import ListView, DetailView, CreateView, View, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from tasks.mixins import UserIsOwnerMixin
-from tasks.forms import TaskForm, TaskFilterForm, CommentForm
+from tasks.forms import TaskForm, TaskFilterForm
 from django.http import HttpResponseRedirect
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
+from .forms import CustomAuthenticationForm, CustomUserCreationForm
 
-class TaskListView(ListView):
+class TaskListView(LoginRequiredMixin, ListView):
     model = models.Task
     context_object_name = 'tasks'
     template_name = 'tasks/task_list.html'
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().filter(creator=self.request.user)
         status = self.request.GET.get('status', "")
         if status:
             queryset = queryset.filter(status=status)
@@ -29,26 +29,10 @@ class TaskListView(ListView):
         context["form"] = TaskFilterForm(self.request.GET)
         return context
 
-class TaskDetailView(DetailView):
+class TaskDetailView(LoginRequiredMixin, DetailView):
     model = models.Task
     context_object_name = 'task'
     template_name = 'tasks/task_detail.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['comment_form'] = CommentForm()
-        return context
-
-    def post(self, request, *args, **kwargs):
-        comment_form = CommentForm(request.POST, request.FILES)
-        if comment_form.is_valid():
-            comment = comment_form.save(commit=False)
-            comment.author = request.user
-            comment.task = self.get_object()
-            comment.save()
-            return redirect('tasks:task-detail', pk=comment.task.pk)
-        else:
-            pass
 
 class TaskCreateView(LoginRequiredMixin, CreateView):
     model = models.Task
@@ -122,8 +106,11 @@ class CommentLikeToggle(LoginRequiredMixin, View):
 
 class CustomLoginView(LoginView):
     template_name = "tasks/login.html"
+    authentication_form = CustomAuthenticationForm
     redirect_authenticated_user = True
 
+    def get_success_url(self):
+        return reverse_lazy("tasks:task_list")
 
 class CustomLogoutView(LogoutView):
     next_page = "tasks:login"
@@ -131,9 +118,9 @@ class CustomLogoutView(LogoutView):
 
 class RegisterView(CreateView):
     template_name = "tasks/register.html"
-    form_class = UserCreationForm
+    form_class = CustomUserCreationForm
 
     def form_valid(self, form):
         user = form.save()
         login(self.request, user)
-        return redirect(reverse_lazy("tasks:login"))
+        return redirect("tasks:task_list")
